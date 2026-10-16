@@ -3,7 +3,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import { Deferred, Effect, Layer, Stream } from "effect";
 import { describe, expect, test } from "vitest";
 import { testFileSystemLayer } from "../../../../testing/layers/testFileSystemLayer.ts";
-import { ApplicationContext } from "../../platform/services/ApplicationContext.ts";
+import { testPlatformLayer } from "../../../../testing/layers/testPlatformLayer.ts";
 import { encodeProjectId } from "../../project/functions/id.ts";
 import { EventBus } from "./EventBus.ts";
 import { FileWatcherService } from "./fileWatcher.ts";
@@ -11,15 +11,18 @@ import { FileWatcherService } from "./fileWatcher.ts";
 const claudeDir = "C:\\synthetic-home\\.claude";
 const projectsDir = `${claudeDir}\\projects`;
 const projectDir = `${projectsDir}\\synthetic-project`;
-const applicationContext = Layer.succeed(ApplicationContext, {
-  claudeCodePaths: Effect.succeed({
-    globalClaudeDirectoryPath: claudeDir,
-    claudeProjectsDirPath: projectsDir,
-    claudeCommandsDirPath: `${claudeDir}\\commands`,
-    claudeSkillsDirPath: `${claudeDir}\\skills`,
-    claudeAgentsDirPath: `${claudeDir}\\agents`,
+const platformLayer = Layer.merge(
+  testPlatformLayer({
+    claudeCodePaths: {
+      globalClaudeDirectoryPath: claudeDir,
+      claudeProjectsDirPath: projectsDir,
+      claudeCommandsDirPath: `${claudeDir}\\commands`,
+      claudeSkillsDirPath: `${claudeDir}\\skills`,
+      claudeAgentsDirPath: `${claudeDir}\\agents`,
+    },
   }),
-});
+  NodePath.layerWin32,
+);
 
 describe("Windows file watcher events", () => {
   for (const absolute of [false, true]) {
@@ -41,14 +44,12 @@ describe("Windows file watcher events", () => {
           );
         }).pipe(
           Effect.provide(FileWatcherService.Live),
-          Effect.provide(EventBus.Live),
-          Effect.provide(applicationContext),
           Effect.provide(
             testFileSystemLayer({
               watch: () => Stream.make(FileSystem.WatchEventUpdate({ path: changedPath })),
             }),
           ),
-          Effect.provide(NodePath.layerWin32),
+          Effect.provide(platformLayer),
         ),
       );
       expect(result).toEqual({ projectId: encodeProjectId(projectDir), sessionId: "session-id" });
@@ -72,14 +73,12 @@ describe("Windows file watcher events", () => {
           );
         }).pipe(
           Effect.provide(FileWatcherService.Live),
-          Effect.provide(EventBus.Live),
-          Effect.provide(applicationContext),
           Effect.provide(
             testFileSystemLayer({
               watch: () => Stream.make(FileSystem.WatchEventUpdate({ path: changedPath })),
             }),
           ),
-          Effect.provide(NodePath.layerWin32),
+          Effect.provide(platformLayer),
         ),
       );
       expect(result).toEqual({ projectId: encodeProjectId(projectDir), agentSessionId: "example" });
